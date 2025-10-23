@@ -1,0 +1,86 @@
+:root {
+    --main-color: #009900;
+    --secondary-color: #003300;
+    --text-color: #CCCCCC;
+    --main-background-color: #333333;
+    --blog-background-color: #555555;
+    --blog-background-secondary: #AAAAAA;
+    --secondary-background-color: #181818;
+    --tertiary-background-color: #e7e7e7;
+    --font-size: 20;
+    --invert: 1;
+}
+
+html,
+body {
+    margin: 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+body::-webkit-scrollbar {
+    display: none;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+    font-family: sans-serif;
+    font-size: var(--font-size);
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-content: center;
+    align-items: center;
+}
+
+div.content {
+    width: 50%;
+}
+
+
+ul a {
+    color: var(--text-color);
+    font-size: 23px;
+    height: 100%;
+    width: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+
+ul a:hover {
+    background-color: var(--main-color);
+}
+
+ul {
+    padding: 0;
+    margin-top: 0px;
+    margin-bottom: 0px;
+    background-color: var(--secondary-background-color);
+    position: fixed;
+    top: 0px;
+    width: 100%;
+    height: 6%;
+    display: flex;
+}
+
+#footer {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    position: fixed;
+    bottom: 0;
+}
+
+#footer a {
+    margin: 5px;
+}
+
+#email img {
+    width: 30px;
+    height: 30px;
+}
+
