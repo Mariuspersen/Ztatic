@@ -4,6 +4,7 @@ const config = @import("config.zon");
 
 const linux = std.os.linux;
 const RespondOptions = std.http.Server.Request.RespondOptions;
+const Connection = std.net.Server.Connection;
 
 fn hash(bytes: []const u8) u64 {
     var final: u64 = 0;
@@ -20,9 +21,12 @@ const address = std.net.Address.parseIp4(
     config.port,
 ) catch |err| @compileError(err);
 
+const options = std.net.Address.ListenOptions{
+    .reuse_address = true,
+};
 
-pub fn main() !void {
-    var server = try address.listen(std.net.Address.ListenOptions{});
+pub fn main() !void { 
+    var server = try address.listen(options);
     defer server.deinit();
 
     var logger = try Logger.init();
