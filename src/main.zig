@@ -46,7 +46,7 @@ pub fn main() !void {
     var logger = try Logger.init();
     defer logger.deinit();
 
-    logger.print("Listening at http://{s}:{d}\n", .{ config.ip, config.port });
+    logger.println("Listening at http://{s}:{d}", .{ config.ip, config.port });
 
     while (true) {
         const connection = server.accept() catch |e| {
@@ -134,7 +134,7 @@ pub fn main() !void {
             continue;
         };
 
-        logger.print("{d}: {s} => {s}\n", .{
+        logger.println("{d}: {s} => {s}", .{
             std.time.timestamp(), path, address_str,
         });
     }
