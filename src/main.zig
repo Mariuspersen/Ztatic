@@ -2,21 +2,15 @@ const std = @import("std");
 const Logger = @import("logger.zig");
 const config = @import("config.zon");
 
+const sendResponse = @import("switch").sendResponse;
+const hash = @import("hash").hash;
+
 const linux = std.os.linux;
 const posix = std.posix;
 const RespondOptions = std.http.Server.Request.RespondOptions;
 const Connection = std.net.Server.Connection;
 const Address = std.net.Address;
 
-fn hash(bytes: []const u8) u64 {
-    var final: u64 = 0;
-    for (bytes, 1..) |b, i| {
-        const mul = @mulWithOverflow(b, i)[0];
-        const res = @addWithOverflow(final, mul)[0];
-        final = res;
-    }
-    return final;
-}
 
 fn genToken(addr: []const u8) ![32]u8 {
     var sha = std.crypto.hash.sha3.Sha3_256.init(.{});
@@ -24,10 +18,6 @@ fn genToken(addr: []const u8) ![32]u8 {
     var final: [32]u8 = undefined;
     sha.final(&final);
     return final;
-}
-
-test "Generate Tokens" {
-    genToken(address);
 }
 
 const address = Address.parseIp4(
@@ -86,48 +76,49 @@ pub fn main() !void {
         const path = it.next() orelse request.head.target;
 
         const hashid = hash(path);
-        const result = switch (hashid) {
-            hash("/") => request.respond(
-                @embedFile("assets/index.html"),
-                .{
-                    .extra_headers = &.{
-                        .{ .name = "Token", .value = &try genToken(address_str) },
-                    },
-                },
-            ),
-            hash("/style.css") => request.respond(
-                @embedFile("assets/style.css"),
-                .{},
-            ),
-            hash("/script.js") => request.respond(
-                @embedFile("assets/script.js"),
-                .{
-                    .extra_headers = &.{
-                        .{ .name = "Content-Type", .value = "application/javascript" },
-                    },
-                },
-            ),
-            hash("/email_icon.svg") => request.respond(
-                @embedFile("assets/email_icon.svg"),
-                .{
-                    .extra_headers = &.{
-                        .{ .name = "Content-Type", .value = "image/svg+xml" },
-                    },
-                },
-            ),
-            hash("/favicon.ico") => request.respond(
-                @embedFile("assets/favicon.ico"),
-                .{
-                    .extra_headers = &.{
-                        .{ .name = "Content-Type", .value = "image/ico+xml" },
-                    },
-                },
-            ),
-            else => request.respond(
-                @embedFile("assets/404.html"),
-                .{ .status = .not_found },
-            ),
-        };
+        const result = sendResponse(hashid,&request);
+        //const result = switch (hashid) {
+        //    hash("/") => request.respond(
+        //        @embedFile("assets/index.html"),
+        //        .{
+        //            .extra_headers = &.{
+        //                .{ .name = "Token", .value = &try genToken(address_str) },
+        //            },
+        //        },
+        //    ),
+        //    hash("/style.css") => request.respond(
+        //        @embedFile("assets/style.css"),
+        //        .{},
+        //    ),
+        //    hash("/script.js") => request.respond(
+        //        @embedFile("assets/script.js"),
+        //        .{
+        //            .extra_headers = &.{
+        //                .{ .name = "Content-Type", .value = "application/javascript" },
+        //            },
+        //        },
+        //    ),
+        //    hash("/email_icon.svg") => request.respond(
+        //        @embedFile("assets/email_icon.svg"),
+        //        .{
+        //            .extra_headers = &.{
+        //                .{ .name = "Content-Type", .value = "image/svg+xml" },
+        //            },
+        //        },
+        //    ),
+        //    hash("/favicon.ico") => request.respond(
+        //        @embedFile("assets/favicon.ico"),
+        //        .{
+        //            .extra_headers = &.{
+        //                .{ .name = "Content-Type", .value = "image/ico+xml" },
+        //            },
+        //        },
+        //    ),
+        //    else => request.respond(
+        //        @embedFile("assets/404.html"),
+        //        .{ .status = .not_found },
+        //    ),
+        //};
 
         result catch |e| {
             logger.print_error(e);
