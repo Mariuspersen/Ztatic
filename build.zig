@@ -52,6 +52,7 @@ pub fn build(b: *std.Build) void {
 
     const clean_step = b.step("clean", "Clean up logfiles");
     clean_step.dependOn(&b.addRemoveDirTree(b.path(config.log_folder_name)).step);
+    clean_step.dependOn(&b.addRemoveDirTree(b.path("zig-out")).step);
 }
 
 
