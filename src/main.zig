@@ -11,7 +11,6 @@ const RespondOptions = std.http.Server.Request.RespondOptions;
 const Connection = std.net.Server.Connection;
 const Address = std.net.Address;
 
-
 fn genToken(addr: []const u8) ![32]u8 {
     var sha = std.crypto.hash.sha3.Sha3_256.init(.{});
     sha.update(addr);

@@ -1,7 +1,7 @@
 .{
     .name = .zighttpserver,
     .version = "0.0.0",
-    .fingerprint = 0x369644b8e483181, // Changing this has security and trust implications.
+    .fingerprint = 0x369644b8e483181,
     .minimum_zig_version = "0.15.1",
     .dependencies = .{
 
