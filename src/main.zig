@@ -77,48 +77,6 @@ pub fn main() !void {
 
         const hashid = hash(path);
         const result = sendResponse(hashid,&request);
-        //const result = switch (hashid) {
-        //    hash("/") => request.respond(
-        //        @embedFile("assets/index.html"),
-        //        .{
-        //            .extra_headers = &.{
-        //                .{ .name = "Token", .value = &try genToken(address_str) },
-        //            },
-        //        },
-        //    ),
-        //    hash("/style.css") => request.respond(
-        //        @embedFile("assets/style.css"),
-        //        .{},
-        //    ),
-        //    hash("/script.js") => request.respond(
-        //        @embedFile("assets/script.js"),
-        //        .{
-        //            .extra_headers = &.{
-        //                .{ .name = "Content-Type", .value = "application/javascript" },
-        //            },
-        //        },
-        //    ),
-        //    hash("/email_icon.svg") => request.respond(
-        //        @embedFile("assets/email_icon.svg"),
-        //        .{
-        //            .extra_headers = &.{
-        //                .{ .name = "Content-Type", .value = "image/svg+xml" },
-        //            },
-        //        },
-        //    ),
-        //    hash("/favicon.ico") => request.respond(
-        //        @embedFile("assets/favicon.ico"),
-        //        .{
-        //            .extra_headers = &.{
-        //                .{ .name = "Content-Type", .value = "image/ico+xml" },
-        //            },
-        //        },
-        //    ),
-        //    else => request.respond(
-        //        @embedFile("assets/404.html"),
-        //        .{ .status = .not_found },
-        //    ),
-        //};
 
         result catch |e| {
             logger.print_error(e);

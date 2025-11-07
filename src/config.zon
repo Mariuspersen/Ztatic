@@ -3,5 +3,5 @@
     .port = 8080,
     .newline = "\n",
     .log_folder_name = ".logs",
-    .executable_name = "joewebsite",
+    .executable_name = "mywebsite",
 }

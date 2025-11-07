@@ -2,4 +2,3 @@
 .zig-cache
 zig-out
 src/switch.zig
-src/assets
