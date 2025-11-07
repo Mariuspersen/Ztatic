@@ -18,18 +18,28 @@ pub fn main() !void {
         \\const hash = @import("hash.zig").hash;
     );
 
-    var dir = try std.fs.cwd().openDir("src/assets", .{.iterate = true});
-    var it = dir.iterate();
     try writer.writeAll(\\
     \\pub fn sendResponse(hashid: u64, req: *std.http.Server.Request) !void {
     \\return switch(hashid) {
     \\
     );
 
-    while (try it.next()) |entry| {
-        const extension = std.fs.path.extension(entry.name);
+    var dir = try std.fs.cwd().openDir("src/assets", .{.iterate = true});
+    var walker = try dir.walk(std.heap.page_allocator);
+    defer walker.deinit();
+
+    while (try walker.next()) |entry| {
+        if (entry.kind == .directory) continue;
+        const extension = std.fs.path.extension(entry.path);
+
+        const name = try std.heap.page_allocator.alloc(u8, std.mem.replacementSize(u8, entry.path, "\\", "/"));
+        defer std.heap.page_allocator.free(name);
+        _ = std.mem.replace(u8, entry.path, "\\", "/", name);
+
+        if (std.mem.indexOf(u8, name, ".git")) |_| continue;
+
         const hashed_ext = hash(extension);
-        const hashed_name = hash(entry.name);
+        const hashed_name = hash(name);
         switch (hashed_name) {
             hash("404.html"), hash("index.html") => continue,
             else => {} 
@@ -50,7 +60,13 @@ pub fn main() !void {
             ,
             hash(".ico") => 
             \\.extra_headers = &.{
-            \\.{ .name = "Content-Type", .value = "image/ico+xml" },
+            \\.{ .name = "Content-Type", .value = "image/ico" },
+            \\},
+            \\
+            ,
+            hash(".png") => 
+            \\.extra_headers = &.{
+            \\.{ .name = "Content-Type", .value = "image/png" },
             \\},
             \\
             ,
@@ -62,7 +78,7 @@ pub fn main() !void {
         \\.{{{s}}},
         \\),
         \\
-        , .{entry.name, entry.name, extra_header});
+        , .{name, name, extra_header});
     }
     try writer.writeAll(
         \\hash("/") => req.respond(
@@ -76,7 +92,6 @@ pub fn main() !void {
         \\};
         \\}
     );
-
-
+    
     try writer.flush();
 }
