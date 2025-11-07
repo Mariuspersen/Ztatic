@@ -2,6 +2,7 @@ const std = @import("std");
 const config = @import("src/config.zon");
 
 pub fn build(b: *std.Build) void {
+    std.fs.cwd().deleteFile("src/switch.zig") catch {};
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -19,17 +20,9 @@ pub fn build(b: *std.Build) void {
     });
 
     switchgen.root_module.addImport("hash", hash_mod);
-    
+
     const switchgen_step = b.addRunArtifact(switchgen);
-    const switchgen_output = switchgen_step.addOutputFileArg("switch.zig");
 
-    const switchgen_mod = b.addModule("switch", .{
-        .root_source_file = switchgen_output,
-        .target = target,
-    });
-
-    switchgen_mod.addImport("hash", hash_mod);
-    
     const exe = b.addExecutable(.{
         .name = config.executable_name,
         .root_module = b.createModule(.{
@@ -41,8 +34,11 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-    exe.root_module.addImport("switch", switchgen_mod);
-    exe.root_module.addImport("hash", hash_mod);
+    exe.step.dependOn(&switchgen_step.step);
+
+    const fmt_run = b.addFmt(.{ .paths = &.{"src/switch.zig"} });
+    fmt_run.step.dependOn(&switchgen_step.step);
+    b.getInstallStep().dependOn(&fmt_run.step);
 
     b.installArtifact(exe);
 

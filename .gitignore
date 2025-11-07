@@ -1,3 +1,4 @@
 .logs
 .zig-cache
 zig-out
+src/switch.zig

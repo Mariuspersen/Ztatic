@@ -2,8 +2,8 @@ const std = @import("std");
 const Logger = @import("logger.zig");
 const config = @import("config.zon");
 
-const sendResponse = @import("switch").sendResponse;
-const hash = @import("hash").hash;
+const sendResponse = @import("switch.zig").sendResponse;
+const hash = @import("hash.zig").hash;
 
 const linux = std.os.linux;
 const posix = std.posix;

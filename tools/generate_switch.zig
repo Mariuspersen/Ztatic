@@ -7,7 +7,7 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(std.heap.page_allocator);
     defer std.process.argsFree(std.heap.page_allocator, args);
 
-    const file = try std.fs.cwd().createFile(args[1], .{});
+    const file = try std.fs.cwd().createFile("src/switch.zig", .{});
     defer file.close();
     var buf: [1024]u8 = undefined;
     var w= file.writer(&buf);
@@ -15,14 +15,14 @@ pub fn main() !void {
 
     try writer.writeAll(
         \\const std = @import("std");
-        \\const hash = @import("hash").hash;
+        \\const hash = @import("hash.zig").hash;
     );
 
     var dir = try std.fs.cwd().openDir("src/assets", .{.iterate = true});
     var it = dir.iterate();
     try writer.writeAll(\\
     \\pub fn sendResponse(hashid: u64, req: *std.http.Server.Request) !void {
-    \\switch(hashid) {
+    \\return switch(hashid) {
     \\
     );
 
@@ -73,7 +73,7 @@ pub fn main() !void {
         \\@embedFile("assets/404.html"),
         \\.{ .status = .not_found },
         \\),
-        \\}
+        \\};
         \\}
     );
 
