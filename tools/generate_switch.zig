@@ -10,7 +10,7 @@ pub fn main() !void {
     const file = try std.fs.cwd().createFile(config.switch_path, .{});
     defer file.close();
     var buf: [1024]u8 = undefined;
-    var w= file.writer(&buf);
+    var w = file.writer(&buf);
     const writer = &w.interface;
 
     try writer.writeAll(
@@ -18,13 +18,14 @@ pub fn main() !void {
         \\const hash = @import("hash.zig").hash;
     );
 
-    try writer.writeAll(\\
-    \\pub fn sendResponse(hashid: u64, req: *std.http.Server.Request) !void {
-    \\return switch(hashid) {
-    \\
+    try writer.writeAll(
+        \\
+        \\pub fn sendResponse(hashid: u64, req: *std.http.Server.Request) !void {
+        \\return switch(hashid) {
+        \\
     );
 
-    var dir = try std.fs.cwd().openDir("src/assets", .{.iterate = true});
+    var dir = try std.fs.cwd().openDir("src/assets", .{ .iterate = true });
     var walker = try dir.walk(std.heap.page_allocator);
     defer walker.deinit();
 
@@ -42,29 +43,29 @@ pub fn main() !void {
         const hashed_name = hash(name);
         switch (hashed_name) {
             hash("404.html"), hash("index.html") => continue,
-            else => {} 
+            else => {},
         }
 
         const extra_header = switch (hashed_ext) {
-            hash(".js") => 
+            hash(".js") =>
             \\.extra_headers = &.{
             \\.{ .name = "Content-Type", .value = "application/javascript" },
             \\},
             \\
             ,
-            hash(".svg") => 
+            hash(".svg") =>
             \\.extra_headers = &.{
             \\.{ .name = "Content-Type", .value = "image/svg+xml" },
             \\},
             \\
             ,
-            hash(".ico") => 
+            hash(".ico") =>
             \\.extra_headers = &.{
             \\.{ .name = "Content-Type", .value = "image/ico" },
             \\},
             \\
             ,
-            hash(".png") => 
+            hash(".png") =>
             \\.extra_headers = &.{
             \\.{ .name = "Content-Type", .value = "image/png" },
             \\},
@@ -72,13 +73,21 @@ pub fn main() !void {
             ,
             else => "",
         };
+        if (std.mem.endsWith(u8, entry.path, ".html")) {
+            const idx = std.mem.lastIndexOf(u8, name, ".");
+            if (idx) |i| {
+                try writer.print(
+                    \\hash("/{s}"),
+                , .{ name[0..i]});
+            }
+        }
         try writer.print(
-        \\hash("/{s}") => req.respond(
-        \\@embedFile("assets/{s}"),
-        \\.{{{s}}},
-        \\),
-        \\
-        , .{name, name, extra_header});
+            \\hash("/{s}") => req.respond(
+            \\@embedFile("assets/{s}"),
+            \\.{{{s}}},
+            \\),
+            \\
+        , .{ name, name, extra_header });
     }
     try writer.writeAll(
         \\hash("/") => req.respond(
@@ -92,6 +101,6 @@ pub fn main() !void {
         \\};
         \\}
     );
-    
+
     try writer.flush();
 }
