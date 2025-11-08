@@ -1,5 +1,5 @@
 const std = @import("std");
-
+const config = @import("config");
 const hash = @import("hash").hash;
 
 pub fn main() !void {
@@ -7,7 +7,7 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(std.heap.page_allocator);
     defer std.process.argsFree(std.heap.page_allocator, args);
 
-    const file = try std.fs.cwd().createFile("src/switch.zig", .{});
+    const file = try std.fs.cwd().createFile(config.switch_path, .{});
     defer file.close();
     var buf: [1024]u8 = undefined;
     var w= file.writer(&buf);

@@ -4,4 +4,6 @@
     .newline = "\n",
     .log_folder_name = ".logs",
     .executable_name = "mywebsite",
+    .switch_path = "src/switch.zig",
+    .repo = "https://github.com/Mariuspersen/mariuspersen.github.io.git",
 }

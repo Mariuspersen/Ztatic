@@ -2,7 +2,7 @@ const std = @import("std");
 const config = @import("src/config.zon");
 
 pub fn build(b: *std.Build) void {
-    std.fs.cwd().deleteFile("src/switch.zig") catch {};
+    std.fs.cwd().deleteFile(config.switch_path) catch {};
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -19,24 +19,37 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
+    switchgen.root_module.addAnonymousImport("config", .{
+        .root_source_file = b.path("src/config.zon"),
+    });
     switchgen.root_module.addImport("hash", hash_mod);
 
-    const switchgen_step = b.addRunArtifact(switchgen);
+    const git = if (std.fs.cwd().access("src/assets", .{})) null else |_| b.addSystemCommand(&.{
+        "git",
+        "clone",
+        "--recurse-submodules",
+        config.repo,
+        "src/assets",
+    });
 
+    const switchgen_step = b.addRunArtifact(switchgen);
+    if (git) |g| {
+        switchgen_step.step.dependOn(&g.step);
+    }
+    
     const exe = b.addExecutable(.{
         .name = config.executable_name,
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
-            .imports = &.{
-            },
+            .imports = &.{},
         }),
     });
 
     exe.step.dependOn(&switchgen_step.step);
 
-    const fmt_run = b.addFmt(.{ .paths = &.{"src/switch.zig"} });
+    const fmt_run = b.addFmt(.{ .paths = &.{config.switch_path} });
     fmt_run.step.dependOn(&switchgen_step.step);
     b.getInstallStep().dependOn(&fmt_run.step);
 
@@ -54,5 +67,3 @@ pub fn build(b: *std.Build) void {
     clean_step.dependOn(&b.addRemoveDirTree(b.path(config.log_folder_name)).step);
     clean_step.dependOn(&b.addRemoveDirTree(b.path("zig-out")).step);
 }
-
-
