@@ -36,9 +36,11 @@ pub fn build(b: *std.Build) void {
     if (git) |g| {
         switchgen_step.step.dependOn(&g.step);
     }
+
+    const slash_idx = if (std.mem.lastIndexOf(u8, config.repo, "/")) |i| i+1 else 0;
     
     const exe = b.addExecutable(.{
-        .name = config.executable_name,
+        .name = config.repo[slash_idx..],
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,

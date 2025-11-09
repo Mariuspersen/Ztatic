@@ -20,13 +20,15 @@ logfile: std.fs.File,
 writer: std.fs.File.Writer,
 
 pub fn init() !Self {
+    const slash_idx = if (std.mem.lastIndexOf(u8, config.repo, "/")) |i| i+1 else 0;
+
     var name_buf: [1024]u8 = undefined;
     var name_writer = std.Io.Writer.fixed(&name_buf);
     try name_writer.print("{s}{s}{d}-{s}.log", .{
         config.log_folder_name,
         std.fs.path.sep_str,
         std.time.timestamp(),
-        config.executable_name,
+        config.repo[slash_idx..],
     });
     try name_writer.flush();
 
