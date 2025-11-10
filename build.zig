@@ -6,6 +6,9 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const dep_opts = .{ .target = target, .optimize = optimize };
+    const tls_module = b.dependency("tls", dep_opts).module("tls");
+
     const hash_mod = b.createModule(.{
         .root_source_file = b.path("src/hash.zig"),
         .target = target,
@@ -48,7 +51,7 @@ pub fn build(b: *std.Build) void {
             .imports = &.{},
         }),
     });
-
+    exe.root_module.addImport("tls", tls_module);
     exe.step.dependOn(&switchgen_step.step);
 
     const fmt_run = b.addFmt(.{ .paths = &.{config.switch_path} });

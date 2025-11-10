@@ -1,9 +1,13 @@
 const std = @import("std");
+const tls = @import("tls");
 const Logger = @import("logger.zig");
 const config = @import("config.zon");
 
 const sendResponse = @import("switch.zig").sendResponse;
 const hash = @import("hash.zig").hash;
+const bundle = @import("hash.zig").addCertsFromSlice;
+
+const comptime_auth = @import("comptime_auth.zig");
 
 const linux = std.os.linux;
 const posix = std.posix;
@@ -29,11 +33,30 @@ const options = Address.ListenOptions{
 };
 
 pub fn main() !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    const alloc = arena.allocator();
+
     var server = try address.listen(options);
     defer server.deinit();
 
     var logger = try Logger.init();
     defer logger.deinit();
+
+    var dir = std.fs.cwd().openDir("src/certs", .{}) catch |e| {
+        logger.print_error(e);
+        return e;
+    };
+    defer dir.close();
+
+    var auth = comptime_auth.init(
+        alloc,
+        @embedFile("certs/localhost_ec/cert.pem"),
+        @embedFile("certs/localhost_ec/key.pem"),
+    ) catch |e| {
+        logger.print_error(e);
+        return e;
+    };
+    defer auth.deinit(alloc);
 
     logger.println("Listening at http://{s}:{d}", .{ config.ip, config.port });
 
@@ -44,17 +67,30 @@ pub fn main() !void {
         };
         defer connection.stream.close();
 
-        var stream_reader_buf: [8 * 1024]u8 = undefined;
-        var stream_writer_buf: [8 * 1024]u8 = undefined;
+        var upgraded = tls.serverFromStream(
+            connection.stream,
+            .{
+                .auth = &auth,
+            },
+        ) catch |e| {
+            logger.print_error(e);
+            continue;
+        };
+        defer upgraded.close() catch |e| {
+            logger.print_error(e);
+        };
 
-        var stream_reader = connection.stream.reader(&stream_reader_buf);
-        var stream_writer = connection.stream.writer(&stream_writer_buf);
+        var https_reader_buf: [16 * 1024]u8 = undefined;
+        var https_writer_buf: [16 * 1024]u8 = undefined;
+        var https_reader = upgraded.reader(&https_reader_buf);
+        var https_writer = upgraded.writer(&https_writer_buf);
 
-        var http_server = std.http.Server.init(
-            stream_reader.interface(),
-            &stream_writer.interface,
+        var https_server = std.http.Server.init(
+            &https_reader.interface,
+            &https_writer.interface,
         );
-        var request = http_server.receiveHead() catch |e| {
+
+        var request = https_server.receiveHead() catch |e| {
             logger.print_error(e);
             continue;
         };
@@ -75,7 +111,7 @@ pub fn main() !void {
         const path = it.next() orelse request.head.target;
 
         const hashid = hash(path);
-        const result = sendResponse(hashid,&request);
+        const result = sendResponse(hashid, &request);
 
         result catch |e| {
             logger.print_error(e);
