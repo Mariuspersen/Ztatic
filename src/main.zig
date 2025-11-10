@@ -33,8 +33,9 @@ const options = Address.ListenOptions{
 };
 
 pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    const alloc = arena.allocator();
+    var alloc_buf: [16 * 1024]u8 = undefined;
+    var fba = std.heap.FixedBufferAllocator.init(&alloc_buf);
+    const alloc = fba.allocator();
 
     var server = try address.listen(options);
     defer server.deinit();
@@ -52,7 +53,7 @@ pub fn main() !void {
     };
     defer auth.deinit(alloc);
 
-    logger.println("Listening at http://{s}:{d}", .{ config.ip, config.port });
+    logger.println("Listening at https://{s}:{d}", .{ config.ip, config.port });
 
     while (true) {
         const connection = server.accept() catch |e| {
