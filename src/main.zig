@@ -44,8 +44,8 @@ pub fn main() !void {
 
     var auth = comptime_auth.init(
         alloc,
-        @embedFile("certs/localhost_ec/cert.pem"),
-        @embedFile("certs/localhost_ec/key.pem"),
+        @embedFile("certs/cert.pem"),
+        @embedFile("certs/key.pem"),
     ) catch |e| {
         logger.print_error(e);
         return e;
