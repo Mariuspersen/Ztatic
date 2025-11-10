@@ -44,8 +44,8 @@ pub fn main() !void {
         };
         defer connection.stream.close();
 
-        var stream_reader_buf: [1024]u8 = undefined;
-        var stream_writer_buf: [1024]u8 = undefined;
+        var stream_reader_buf: [8 * 1024]u8 = undefined;
+        var stream_writer_buf: [8 * 1024]u8 = undefined;
 
         var stream_reader = connection.stream.reader(&stream_reader_buf);
         var stream_writer = connection.stream.writer(&stream_writer_buf);
