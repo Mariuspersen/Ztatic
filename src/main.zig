@@ -42,12 +42,6 @@ pub fn main() !void {
     var logger = try Logger.init();
     defer logger.deinit();
 
-    var dir = std.fs.cwd().openDir("src/certs", .{}) catch |e| {
-        logger.print_error(e);
-        return e;
-    };
-    defer dir.close();
-
     var auth = comptime_auth.init(
         alloc,
         @embedFile("certs/localhost_ec/cert.pem"),
