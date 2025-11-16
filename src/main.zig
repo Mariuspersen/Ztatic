@@ -1,13 +1,13 @@
 const std = @import("std");
 const tls = @import("tls");
 const Logger = @import("logger.zig");
-const config = @import("config.zon");
+const Config = @import("config.zon");
+const ComptimeAuth = @import("comptime_auth.zig");
+const SwitchCodeGen = @import("switch.zig");
+const Hash = @import("hash.zig");
 
-const sendResponse = @import("switch.zig").sendResponse;
-const hash = @import("hash.zig").hash;
-const bundle = @import("hash.zig").addCertsFromSlice;
-
-const comptime_auth = @import("comptime_auth.zig");
+const sendResponse = SwitchCodeGen.sendResponse;
+const hash = Hash.hash;
 
 const linux = std.os.linux;
 const posix = std.posix;
@@ -15,21 +15,14 @@ const RespondOptions = std.http.Server.Request.RespondOptions;
 const Connection = std.net.Server.Connection;
 const Address = std.net.Address;
 
-fn genToken(addr: []const u8) ![32]u8 {
-    var sha = std.crypto.hash.sha3.Sha3_256.init(.{});
-    sha.update(addr);
-    var final: [32]u8 = undefined;
-    sha.final(&final);
-    return final;
-}
-
 const address = Address.parseIp4(
-    config.ip,
-    config.port,
+    Config.ip,
+    Config.port,
 ) catch |err| @compileError(err);
 
 const options = Address.ListenOptions{
     .reuse_address = true,
+    .kernel_backlog = 1,
 };
 
 pub fn main() !void {
@@ -43,7 +36,7 @@ pub fn main() !void {
     var logger = try Logger.init();
     defer logger.deinit();
 
-    var auth = comptime_auth.init(
+    var auth = ComptimeAuth.init(
         alloc,
         @embedFile("certs/cert.pem"),
         @embedFile("certs/key.pem"),
@@ -53,7 +46,8 @@ pub fn main() !void {
     };
     defer auth.deinit(alloc);
 
-    logger.println("Listening at https://{s}:{d}", .{ config.ip, config.port });
+    logger.println("Listening at https://{s}:{d}", .{ Config.ip, Config.port });
+    logger.flush();
 
     while (true) {
         const connection = server.accept() catch |e| {
@@ -90,31 +84,19 @@ pub fn main() !void {
             continue;
         };
 
-        var address_buf: [1024]u8 = undefined;
-        var address_writer = std.io.Writer.fixed(&address_buf);
-        connection.address.format(&address_writer) catch |e| {
-            logger.print_error(e);
-            continue;
-        };
-        const index = std.mem.lastIndexOf(u8, &address_buf, ":") orelse {
-            logger.print_error(error.AddressNotHaveAColon);
-            continue;
-        };
-        const address_str = address_buf[0..index];
-
         var it = std.mem.splitAny(u8, request.head.target, "?");
         const path = it.next() orelse request.head.target;
 
-        const hashid = hash(path);
-        const result = sendResponse(hashid, &request);
+        logger.print("{d}: {s} => ", .{ std.time.timestamp(), path });
+        connection.address.format(&logger.stdout_writer.interface) catch {};
+        connection.address.format(&logger.filewriter.interface) catch {};
+        logger.println("", .{});
+        logger.flush();
 
-        result catch |e| {
+        const hashid = hash(path);
+        sendResponse(hashid, &request) catch |e| {
             logger.print_error(e);
             continue;
         };
-
-        logger.println("{d}: {s} => {s}", .{
-            std.time.timestamp(), path, address_str,
-        });
     }
 }

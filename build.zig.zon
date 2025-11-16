@@ -1,12 +1,12 @@
 .{
     .name = .zighttpserver,
-    .version = "0.0.0",
+    .version = "0.0.1",
     .fingerprint = 0x369644b8e483181,
     .minimum_zig_version = "0.15.1",
     .dependencies = .{
         .tls = .{
-            .url = "https://github.com/ianic/tls.zig/archive/refs/heads/master.tar.gz",
-            .hash = "tls-0.1.0-ER2e0gNoBQBLuvbg_hPuGQYoCVsn-kHDuupr0hsapu4P",
+            .url = "https://github.com/mariuspersen/tls.zig/archive/refs/heads/master.tar.gz",
+            .hash = "tls-0.1.0-ER2e0qtnBQDmK_ydsdrKL8BTyHOzZt-AdvjC81rmmsR3",
         },
     },
     .paths = .{

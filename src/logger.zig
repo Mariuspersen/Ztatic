@@ -15,12 +15,18 @@ pub const newline = switch (native_os) {
 const Self = @This();
 
 var filewriter_buf: [1024]u8 = undefined;
+var stdout_buf: [1024]u8 = undefined;
+var stderr_buf: [1024]u8 = undefined;
 
-logfile: std.fs.File,
-writer: std.fs.File.Writer,
+logfile: File,
+filewriter: File.Writer,
+stdout: File,
+stdout_writer: File.Writer,
+stderr: File,
+stderr_writer: File.Writer,
 
 pub fn init() !Self {
-    const slash_idx = if (std.mem.lastIndexOf(u8, config.repo, "/")) |i| i+1 else 0;
+    const slash_idx = if (std.mem.lastIndexOf(u8, config.repo, "/")) |i| i + 1 else 0;
 
     var name_buf: [1024]u8 = undefined;
     var name_writer = std.Io.Writer.fixed(&name_buf);
@@ -40,29 +46,42 @@ pub fn init() !Self {
     const file = try std.fs.cwd().createFile(name_buf[0..name_writer.end], .{});
     const writer = file.writer(&filewriter_buf);
 
+    const stdout = File.stdout();
+    const stdout_writer = stdout.writer(&stdout_buf);
+
+    const stderr = File.stderr();
+    const stderr_writer = stderr.writer(&stderr_buf);
+
     return .{
         .logfile = file,
-        .writer = writer,
+        .filewriter = writer,
+        .stdout = stdout,
+        .stdout_writer = stdout_writer,
+        .stderr = stderr,
+        .stderr_writer = stderr_writer,
     };
 }
 
 pub fn print_error(self: *Self, err: anyerror) void {
-    var stderr_buf: [1024]u8 = undefined;
-    var stderr = File.stdout().writer(&stderr_buf);
-    const writers = [_]*Writer{&self.writer.interface, &stderr.interface};
+    const writers = [_]*Writer{
+        &self.filewriter.interface,
+        &self.stderr_writer.interface,
+    };
 
     const ts = std.time.timestamp();
     const en = @errorName(err);
     const fmt = "{d}: ERROR: {s}" ++ newline;
     const args = .{ ts, en };
-    
+
     self.print_to_writer_slice(&writers, fmt, args);
+    self.flush_writers(&writers);
 }
 
 pub fn print(self: *Self, comptime fmt: []const u8, args: anytype) void {
-    var stdout_buf: [1024]u8 = undefined;
-    var stdout = File.stdout().writer(&stdout_buf);
-    const writers = [_]*Writer{&self.writer.interface, &stdout.interface};
+    const writers = [_]*Writer{
+        &self.filewriter.interface,
+        &self.stdout_writer.interface,
+    };
     self.print_to_writer_slice(&writers, fmt, args);
 }
 
@@ -72,9 +91,20 @@ pub fn println(self: *Self, comptime fmt: []const u8, args: anytype) void {
 
 fn print_to_writer_slice(_: *Self, writers: []const *Writer, comptime fmt: []const u8, args: anytype) void {
     for (writers) |writer| {
-        writer.print(fmt,args) catch {};
-        writer.flush() catch {};
+        writer.print(fmt, args) catch {};
     }
+}
+
+pub fn flush(self: *Self) void {
+    const writers = [_]*Writer{
+        &self.filewriter.interface,
+        &self.stdout_writer.interface,
+    };
+    self.flush_writers(&writers);
+}
+
+fn flush_writers(_: *Self, writers: []const *Writer) void {
+    for (writers) |writer| writer.flush() catch {};
 }
 
 pub fn deinit(self: *Self) void {
