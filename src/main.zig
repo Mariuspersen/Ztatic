@@ -87,10 +87,23 @@ pub fn main() !void {
         var it = std.mem.splitAny(u8, request.head.target, "?");
         const path = it.next() orelse request.head.target;
 
-        logger.print("{d}: {s} => ", .{ std.time.timestamp(), path });
-        connection.address.format(&logger.stdout_writer.interface) catch {};
-        connection.address.format(&logger.filewriter.interface) catch {};
-        logger.println("", .{});
+        var address_buf: [1024]u8 = undefined;
+        var address_writer = std.io.Writer.fixed(&address_buf);
+        connection.address.format(&address_writer) catch |e| {
+            logger.print_error(e);
+            continue;
+        };
+        const index = std.mem.lastIndexOf(u8, &address_buf, ":") orelse {
+            logger.print_error(error.AddressNotHaveAColon);
+            continue;
+        };
+        const address_str = address_buf[0..index];
+
+        logger.println("{d}: {s} => {s}", .{
+            std.time.timestamp(),
+            path,
+            address_str,
+        });
         logger.flush();
 
         const hashid = hash(path);
