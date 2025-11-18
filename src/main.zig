@@ -22,7 +22,6 @@ const address = Address.parseIp4(
 
 const options = Address.ListenOptions{
     .reuse_address = true,
-    .kernel_backlog = 1,
 };
 
 pub fn main() !void {
