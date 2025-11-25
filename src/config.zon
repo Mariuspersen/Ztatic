@@ -7,11 +7,10 @@
     .websites = .{
         .{
             .repo = "https://github.com/Mariuspersen/mariuspersen.github.io.git",
-            .url = "localhost"
+            .urls = .{
+                "mariusalexandersen.no",
+            }
         },
-        .{
-            .repo = "https://github.com/thedev-id/thedev.id",
-            .url = "127.0.0.1"
-        },
+
     },
 }

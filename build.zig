@@ -93,7 +93,7 @@ pub fn build(b: *std.Build) !void {
     }
 
     const fmt_run = b.addFmt(.{ .paths = &.{"src/switch.zig"} });
-    fmt_run.step.dependOn(&switchgen_website_run.step);
+    fmt_run.step.dependOn(&switchgen_host_run.step);
     b.getInstallStep().dependOn(&fmt_run.step);
 
     b.installArtifact(exe);
@@ -109,4 +109,6 @@ pub fn build(b: *std.Build) !void {
     const clean_step = b.step("clean", "Clean up logfiles");
     clean_step.dependOn(&b.addRemoveDirTree(b.path(config.log_folder_name)).step);
     clean_step.dependOn(&b.addRemoveDirTree(b.path("zig-out")).step);
+    clean_step.dependOn(&b.addRemoveDirTree(b.path("src/website_switches")).step);
+    clean_step.dependOn(&b.addRemoveDirTree(b.path("src/assets")).step);
 }

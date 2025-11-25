@@ -40,10 +40,14 @@ pub fn main() !void {
 
     inline for (Config.websites) |website| {
         const slashed = comptime find_index(website.repo);
+        inline for (website.urls) |url| {
+            try writer.print(
+                \\hash("{s}"),
+            , .{url});
+        }
         try writer.print(
-            \\hash("{s}") => @"{s}".sendResponse(hashid,req),
-            \\
-        , .{ website.url, slashed });
+            \\ => @"{s}".sendResponse(hashid,req),
+        , .{slashed});
     }
 
     try writer.writeAll(
@@ -59,7 +63,6 @@ pub fn main() !void {
         \\},
         \\else => continue,
         \\}
-
     );
 
     try writer.writeAll(
