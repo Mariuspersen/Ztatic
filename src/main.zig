@@ -85,6 +85,7 @@ pub fn main() !void {
 
         var it = std.mem.splitAny(u8, request.head.target, "?");
         const path = it.next() orelse request.head.target;
+        const hashed_path = hash(path);
 
         var address_buf: [1024]u8 = undefined;
         var address_writer = std.io.Writer.fixed(&address_buf);
@@ -98,17 +99,36 @@ pub fn main() !void {
         };
         const address_str = address_buf[0..index];
 
+        var h_it = request.iterateHeaders();
+        while (h_it.next()) |h| {
+            switch (hash(h.name)) {
+                hash("Host") => {
+                    switch (hash(h.value)) {
+                        hash("localhost") => {
+                            try request.respond("Who are you??", .{});
+                        },
+                        hash("127.0.0.1") => {
+                            try request.respond("Hello 127.0.0.1 :)", .{});
+                        },
+                        else => {
+                            sendResponse(hashed_path, &request) catch |e| {
+                                logger.print_error(e);
+                                continue;
+                            };
+                        },
+                    }
+                    break;
+                },
+                else => continue,
+            }
+            std.debug.print("{s} => {s}\n", .{ h.name, h.value });
+        }
+
         logger.println("{d}: {s} => {s}", .{
             std.time.timestamp(),
             path,
             address_str,
         });
         logger.flush();
-
-        const hashid = hash(path);
-        sendResponse(hashid, &request) catch |e| {
-            logger.print_error(e);
-            continue;
-        };
     }
 }
