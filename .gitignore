@@ -4,3 +4,4 @@ zig-out
 src/switch.zig
 src/assets
 src/certs
+src/website_switches

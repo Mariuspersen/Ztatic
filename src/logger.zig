@@ -14,57 +14,65 @@ pub const newline = switch (native_os) {
 
 const Self = @This();
 
-var filewriter_buf: [1024]u8 = undefined;
-var stdout_buf: [1024]u8 = undefined;
-var stderr_buf: [1024]u8 = undefined;
-
 logfile: File,
-filewriter: File.Writer,
+logfile_buf: []u8,
+logfile_writer: File.Writer,
 stdout: File,
+stdout_buf: []u8,
 stdout_writer: File.Writer,
 stderr: File,
+stderr_buf: []u8,
 stderr_writer: File.Writer,
 
-pub fn init() !Self {
-    const slash_idx = if (std.mem.lastIndexOf(u8, config.repo, "/")) |i| i + 1 else 0;
+pub fn init(alloc: std.mem.Allocator) !Self {
+    const args = try std.process.argsAlloc(alloc);
+    defer std.process.argsFree(alloc, args);
+    const basename = std.fs.path.basename(args[0]);
 
-    var name_buf: [1024]u8 = undefined;
-    var name_writer = std.Io.Writer.fixed(&name_buf);
-    try name_writer.print("{s}{s}{d}-{s}.log", .{
+    var name_writer = std.Io.Writer.Allocating.init(alloc);
+    defer name_writer.deinit();
+
+    try name_writer.writer.print("{s}{s}{d}-{s}.log", .{
         config.log_folder_name,
         std.fs.path.sep_str,
         std.time.timestamp(),
-        config.repo[slash_idx..],
+        basename,
     });
-    try name_writer.flush();
+    try name_writer.writer.flush();
 
     std.fs.cwd().makeDir(config.log_folder_name) catch |e| switch (e) {
         error.PathAlreadyExists => {},
         else => return e,
     };
 
-    const file = try std.fs.cwd().createFile(name_buf[0..name_writer.end], .{});
-    const writer = file.writer(&filewriter_buf);
+    const logfile = try std.fs.cwd().createFile(name_writer.written(), .{});
+    const logfile_buf = try alloc.alloc(u8, 1024);
+    const logfile_writer = logfile.writer(logfile_buf);
 
     const stdout = File.stdout();
-    const stdout_writer = stdout.writer(&stdout_buf);
+    const stdout_buf = try alloc.alloc(u8, 1024);
+    const stdout_writer = stdout.writer(stdout_buf);
 
     const stderr = File.stderr();
-    const stderr_writer = stderr.writer(&stderr_buf);
+    const stderr_buf = try alloc.alloc(u8, 1024);
+    const stderr_writer = stderr.writer(stderr_buf);
 
     return .{
-        .logfile = file,
-        .filewriter = writer,
+        .logfile = logfile,
+        .logfile_buf = logfile_buf,
+        .logfile_writer = logfile_writer,
         .stdout = stdout,
+        .stdout_buf = stdout_buf,
         .stdout_writer = stdout_writer,
         .stderr = stderr,
+        .stderr_buf = stderr_buf,
         .stderr_writer = stderr_writer,
     };
 }
 
 pub fn print_error(self: *Self, err: anyerror) void {
     const writers = [_]*Writer{
-        &self.filewriter.interface,
+        &self.logfile_writer.interface,
         &self.stderr_writer.interface,
     };
 
@@ -79,7 +87,7 @@ pub fn print_error(self: *Self, err: anyerror) void {
 
 pub fn print(self: *Self, comptime fmt: []const u8, args: anytype) void {
     const writers = [_]*Writer{
-        &self.filewriter.interface,
+        &self.logfile_writer.interface,
         &self.stdout_writer.interface,
     };
     self.print_to_writer_slice(&writers, fmt, args);
@@ -97,7 +105,7 @@ fn print_to_writer_slice(_: *Self, writers: []const *Writer, comptime fmt: []con
 
 pub fn flush(self: *Self) void {
     const writers = [_]*Writer{
-        &self.filewriter.interface,
+        &self.logfile_writer.interface,
         &self.stdout_writer.interface,
     };
     self.flush_writers(&writers);
@@ -107,6 +115,9 @@ fn flush_writers(_: *Self, writers: []const *Writer) void {
     for (writers) |writer| writer.flush() catch {};
 }
 
-pub fn deinit(self: *Self) void {
+pub fn deinit(self: *Self, alloc: std.mem.Allocator) void {
+    alloc.free(self.logfile_buf);
+    alloc.free(self.stdout_buf);
+    alloc.free(self.stderr_buf);
     self.logfile.close();
 }

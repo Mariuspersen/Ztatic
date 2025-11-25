@@ -1,13 +1,27 @@
 const std = @import("std");
-const config = @import("config");
-const hash = @import("hash").hash;
+const Config = @import("config");
+const Index = @import("index");
+const Hash = @import("hash");
+
+const hash = Hash.hash;
+const find_index = Index.slash_index;
 
 pub fn main() !void {
     defer std.process.cleanExit();
-    const args = try std.process.argsAlloc(std.heap.page_allocator);
-    defer std.process.argsFree(std.heap.page_allocator, args);
 
-    const file = try std.fs.cwd().createFile(config.switch_path, .{});
+    std.fs.cwd().makeDir("src/website_switches/") catch |e| switch (e) {
+        error.PathAlreadyExists => {},
+        else => return e,
+    };
+
+    inline for (Config.websites) |website| {
+        try generate_switch(website.repo);
+    }
+}
+
+fn generate_switch(comptime repo: []const u8) !void {
+    const slashed = comptime find_index(repo);
+    const file = try std.fs.cwd().createFile("src/website_switches/" ++ slashed ++ ".zig", .{});
     defer file.close();
     var buf: [1024]u8 = undefined;
     var w = file.writer(&buf);
@@ -15,7 +29,9 @@ pub fn main() !void {
 
     try writer.writeAll(
         \\const std = @import("std");
-        \\const hash = @import("hash.zig").hash;
+        \\const Hash = @import("hash");
+        \\const hash = Hash.hash;
+        \\
     );
 
     try writer.writeAll(
@@ -25,7 +41,7 @@ pub fn main() !void {
         \\
     );
 
-    var dir = try std.fs.cwd().openDir("src/assets", .{ .iterate = true });
+    var dir = try std.fs.cwd().openDir("src/assets/" ++ slashed, .{ .iterate = true });
     var walker = try dir.walk(std.heap.page_allocator);
     defer walker.deinit();
 
@@ -33,9 +49,19 @@ pub fn main() !void {
         if (entry.kind == .directory) continue;
         const extension = std.fs.path.extension(entry.path);
 
-        const name = try std.heap.page_allocator.alloc(u8, std.mem.replacementSize(u8, entry.path, "\\", "/"));
+        const name = try std.heap.page_allocator.alloc(
+            u8,
+            std.mem.replacementSize(u8, entry.path, "\\", "/"),
+        );
         defer std.heap.page_allocator.free(name);
-        _ = std.mem.replace(u8, entry.path, "\\", "/", name);
+
+        _ = std.mem.replace(
+            u8,
+            entry.path,
+            "\\",
+            "/",
+            name,
+        );
 
         if (std.mem.indexOf(u8, name, ".git")) |_| continue;
 
@@ -78,29 +104,29 @@ pub fn main() !void {
             if (idx) |i| {
                 try writer.print(
                     \\hash("/{s}"),
-                , .{ name[0..i]});
+                , .{name[0..i]});
             }
         }
         try writer.print(
             \\hash("/{s}") => req.respond(
-            \\@embedFile("assets/{s}"),
+            \\@embedFile("../assets/{s}/{s}"),
             \\.{{{s}}},
             \\),
             \\
-        , .{ name, name, extra_header });
+        , .{ name, slashed, name, extra_header });
     }
-    try writer.writeAll(
+    try writer.print(
         \\hash("/") => req.respond(
-        \\@embedFile("assets/index.html"),
-        \\.{},
+        \\@embedFile("../assets/{s}/index.html"),
+        \\.{{}},
         \\),
         \\else => req.respond(
-        \\@embedFile("assets/404.html"),
-        \\.{ .status = .not_found },
+        \\@embedFile("../404.html"),
+        \\.{{ .status = .not_found }},
         \\),
-        \\};
-        \\}
-    );
+        \\}};
+        \\}}
+    , .{ slashed });
 
     try writer.flush();
 }

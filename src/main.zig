@@ -4,7 +4,7 @@ const Logger = @import("logger.zig");
 const Config = @import("config.zon");
 const ComptimeAuth = @import("comptime_auth.zig");
 const SwitchCodeGen = @import("switch.zig");
-const Hash = @import("hash.zig");
+const Hash = @import("hash");
 
 const sendResponse = SwitchCodeGen.sendResponse;
 const hash = Hash.hash;
@@ -25,15 +25,15 @@ const options = Address.ListenOptions{
 };
 
 pub fn main() !void {
-    var alloc_buf: [16 * 1024]u8 = undefined;
+    var alloc_buf: [1024 * 1024]u8 = undefined;
     var fba = std.heap.FixedBufferAllocator.init(&alloc_buf);
     const alloc = fba.allocator();
 
     var server = try address.listen(options);
     defer server.deinit();
 
-    var logger = try Logger.init();
-    defer logger.deinit();
+    var logger = try Logger.init(alloc);
+    defer logger.deinit(alloc);
 
     var auth = ComptimeAuth.init(
         alloc,
@@ -99,30 +99,10 @@ pub fn main() !void {
         };
         const address_str = address_buf[0..index];
 
-        var h_it = request.iterateHeaders();
-        while (h_it.next()) |h| {
-            switch (hash(h.name)) {
-                hash("Host") => {
-                    switch (hash(h.value)) {
-                        hash("localhost") => {
-                            try request.respond("Who are you??", .{});
-                        },
-                        hash("127.0.0.1") => {
-                            try request.respond("Hello 127.0.0.1 :)", .{});
-                        },
-                        else => {
-                            sendResponse(hashed_path, &request) catch |e| {
-                                logger.print_error(e);
-                                continue;
-                            };
-                        },
-                    }
-                    break;
-                },
-                else => continue,
-            }
-            std.debug.print("{s} => {s}\n", .{ h.name, h.value });
-        }
+        SwitchCodeGen.sendResponse(hashed_path, &request) catch |e| {
+            logger.print_error(e);
+            continue;
+        };
 
         logger.println("{d}: {s} => {s}", .{
             std.time.timestamp(),

@@ -1,8 +1,11 @@
 const std = @import("std");
 const config = @import("src/config.zon");
+const Index = @import("src/index.zig");
 
-pub fn build(b: *std.Build) void {
-    std.fs.cwd().deleteFile(config.switch_path) catch {};
+const find_index = Index.slash_index;
+
+pub fn build(b: *std.Build) !void {
+    //std.fs.cwd().deleteFile(config.switch_path) catch {};
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -14,53 +17,62 @@ pub fn build(b: *std.Build) void {
         .target = target,
     });
 
-    const switchgen = b.addExecutable(.{
+    const index_mod = b.createModule(.{
+        .root_source_file = b.path("src/index.zig"),
+        .target = target,
+    });
+
+    const switchgen_website = b.addExecutable(.{
         .name = "switch_gen",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("tools/generate_switch.zig"),
+            .root_source_file = b.path("tools/generate_website_switch.zig"),
             .target = b.graph.host,
         }),
     });
 
-    switchgen.root_module.addAnonymousImport("config", .{
+    switchgen_website.root_module.addAnonymousImport("config", .{
         .root_source_file = b.path("src/config.zon"),
     });
-    switchgen.root_module.addImport("hash", hash_mod);
+    switchgen_website.root_module.addImport("hash", hash_mod);
+    switchgen_website.root_module.addImport("index", index_mod);
+
+    const switchgen_host = b.addExecutable(.{
+        .name = "switch_gen",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/generate_host_switch.zig"),
+            .target = b.graph.host,
+        }),
+    });
+
+    switchgen_host.root_module.addAnonymousImport("config", .{
+        .root_source_file = b.path("src/config.zon"),
+    });
+    switchgen_host.root_module.addImport("hash", hash_mod);
+    switchgen_host.root_module.addImport("index", index_mod);
 
     var runs = std.ArrayList(?*std.Build.Step.Run).initCapacity(b.allocator, config.websites.len) catch @panic("OOM");
-    runs.deinit(b.allocator);
 
     inline for (config.websites) |website| {
-        const run = if (std.fs.cwd().access("src/" ++ website.repo, .{})) null else |_| b.addSystemCommand(&.{
+        const slashed = comptime find_index(website.repo);
+        try runs.append(b.allocator, if (std.fs.cwd().access("src/assets/" ++ slashed, .{})) null else |_| b.addSystemCommand(&.{
             "git",
             "clone",
             "--recurse-submodules",
             website.repo,
-            "src/" ++ website.repo,
-        });
-        runs.appendAssumeCapacity(run);
+            "src/assets/" ++ slashed,
+        }));
     }
 
-    const git = if (std.fs.cwd().access("src/assets", .{})) null else |_| b.addSystemCommand(&.{
-        "git",
-        "clone",
-        "--recurse-submodules",
-        config.websites[0].repo,
-        "src/assets",
-    });
-
-    const switchgen_step = b.addRunArtifact(switchgen);
-    for (runs.items) |run| if(run) |r| {
-        switchgen_step.step.dependOn(&r.step);
+    const switchgen_website_run = b.addRunArtifact(switchgen_website);
+    for (runs.items) |run| if (run) |r| {
+        switchgen_website_run.step.dependOn(&r.step);
     };
-    if (git) |g| {
-        switchgen_step.step.dependOn(&g.step);
-    }
 
-    const slash_idx = if (std.mem.lastIndexOf(u8, config.websites[0].repo, "/")) |i| i + 1 else 0;
+    const switchgen_host_run = b.addRunArtifact(switchgen_host);
+    switchgen_host_run.step.dependOn(&switchgen_website_run.step);
 
     const exe = b.addExecutable(.{
-        .name = config.websites[0].repo[slash_idx..],
+        .name = "webserver",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,
@@ -69,10 +81,19 @@ pub fn build(b: *std.Build) void {
         }),
     });
     exe.root_module.addImport("tls", tls_module);
-    exe.step.dependOn(&switchgen_step.step);
+    exe.root_module.addImport("hash", hash_mod);
+    exe.step.dependOn(&switchgen_website_run.step);
+    exe.step.dependOn(&switchgen_host_run.step);
 
-    const fmt_run = b.addFmt(.{ .paths = &.{config.switch_path} });
-    fmt_run.step.dependOn(&switchgen_step.step);
+    inline for (config.websites) |website| {
+        const slashed = comptime find_index(website.repo);
+        const fmt_run = b.addFmt(.{ .paths = &.{"src/website_switches/" ++ slashed ++ ".zig"} });
+        fmt_run.step.dependOn(&switchgen_website_run.step);
+        b.getInstallStep().dependOn(&fmt_run.step);
+    }
+
+    const fmt_run = b.addFmt(.{ .paths = &.{"src/switch.zig"} });
+    fmt_run.step.dependOn(&switchgen_website_run.step);
     b.getInstallStep().dependOn(&fmt_run.step);
 
     b.installArtifact(exe);
