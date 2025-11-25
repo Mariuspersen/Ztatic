@@ -59,7 +59,6 @@ pub fn main() !void {
 
     try writer.writeAll(
         \\};
-        \\std.debug.print("{s}\n",.{h.value});
         \\},
         \\else => continue,
         \\}
