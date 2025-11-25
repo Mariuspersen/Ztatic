@@ -4,5 +4,14 @@
     .newline = "\n",
     .log_folder_name = ".logs",
     .switch_path = "src/switch.zig",
-    .repo = "https://github.com/Mariuspersen/mariuspersen.github.io.git",
+    .websites = .{
+        .{
+            .repo = "https://github.com/Mariuspersen/mariuspersen.github.io.git",
+            .url = "https://mariusalexandersen.no"
+        },
+        .{
+            .repo = "https://github.com/thedev-id/thedev.id",
+            .url = "https://thedev.id/"
+        },
+    },
 }
