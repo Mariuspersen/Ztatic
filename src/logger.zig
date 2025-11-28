@@ -1,5 +1,5 @@
 const std = @import("std");
-const config = @import("config.zon");
+const Config = @import("config");
 const Writer = std.io.Writer;
 const File = std.fs.File;
 
@@ -13,6 +13,7 @@ pub const newline = switch (native_os) {
 };
 
 const Self = @This();
+const Settings = Config.settings;
 
 logfile: File,
 logfile_buf: []u8,
@@ -33,14 +34,14 @@ pub fn init(alloc: std.mem.Allocator) !Self {
     defer name_writer.deinit();
 
     try name_writer.writer.print("{s}{s}{d}-{s}.log", .{
-        config.log_folder_name,
+        Settings.log_folder_name,
         std.fs.path.sep_str,
         std.time.timestamp(),
         basename,
     });
     try name_writer.writer.flush();
 
-    std.fs.cwd().makeDir(config.log_folder_name) catch |e| switch (e) {
+    std.fs.cwd().makeDir(Settings.log_folder_name) catch |e| switch (e) {
         error.PathAlreadyExists => {},
         else => return e,
     };

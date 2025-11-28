@@ -4,6 +4,8 @@ const Index = @import("index");
 const Config = @import("config");
 const find_index = Index.slash_index;
 
+const Settings = Config.settings;
+
 pub fn main() !void {
     defer std.process.cleanExit();
     const file = try std.fs.cwd().createFile("src/switch.zig", .{});
@@ -19,7 +21,7 @@ pub fn main() !void {
         \\
     );
 
-    inline for (Config.websites) |website| {
+    inline for (Settings.websites) |website| {
         const slashed = comptime find_index(website.repo);
         try writer.print(
             \\const @"{s}" = @import("website_switches/{s}.zig");
@@ -38,7 +40,7 @@ pub fn main() !void {
         \\
     );
 
-    inline for (Config.websites) |website| {
+    inline for (Settings.websites) |website| {
         const slashed = comptime find_index(website.repo);
         inline for (website.urls) |url| {
             try writer.print(

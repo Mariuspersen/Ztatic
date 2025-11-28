@@ -6,6 +6,8 @@ const Hash = @import("hash");
 const hash = Hash.hash;
 const find_index = Index.slash_index;
 
+const Settings = Config.settings;
+
 pub fn main() !void {
     defer std.process.cleanExit();
 
@@ -14,7 +16,7 @@ pub fn main() !void {
         else => return e,
     };
 
-    inline for (Config.websites) |website| {
+    inline for (Settings.websites) |website| {
         try generate_switch(website.repo);
     }
 }

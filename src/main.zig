@@ -1,7 +1,7 @@
 const std = @import("std");
 const tls = @import("tls");
 const Logger = @import("logger.zig");
-const Config = @import("config.zon");
+const Config = @import("config");
 const ComptimeAuth = @import("comptime_auth.zig");
 const SwitchCodeGen = @import("switch.zig");
 const Hash = @import("hash");
@@ -15,9 +15,11 @@ const RespondOptions = std.http.Server.Request.RespondOptions;
 const Connection = std.net.Server.Connection;
 const Address = std.net.Address;
 
+const Settings = Config.settings;
+
 const address = Address.parseIp4(
-    Config.ip,
-    Config.port,
+    Settings.ip,
+    Settings.port,
 ) catch |err| @compileError(err);
 
 const options = Address.ListenOptions{
@@ -45,7 +47,7 @@ pub fn main() !void {
     };
     defer auth.deinit(alloc);
 
-    logger.println("Listening at https://{s}:{d}", .{ Config.ip, Config.port });
+    logger.println("Listening at https://{s}:{d}", .{ Settings.ip, Settings.port });
     logger.flush();
 
     while (true) {
