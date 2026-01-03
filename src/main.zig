@@ -44,8 +44,8 @@ pub fn main() !void {
     );
     defer auth.deinit(alloc);
 
-    logger.println("Listening at https://{s}:{d}", .{ Settings.ip, Settings.port });
-    logger.flush();
+    try logger.println("Listening at https://{s}:{d}", .{ Settings.ip, Settings.port });
+    try logger.flush();
 
     while (true) {
         const connection = try server.accept();
@@ -83,11 +83,11 @@ pub fn main() !void {
         try SwitchCodeGen.sendResponse(hashed_path, &request);
         try upgraded.close();
 
-        logger.println("{d}: {s} => {s}", .{
+        try logger.println("{d}: {s} => {s}", .{
             std.time.timestamp(),
             path,
             address_str,
         });
-        logger.flush();
+        try logger.flush();
     }
 }

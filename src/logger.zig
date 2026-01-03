@@ -71,7 +71,7 @@ pub fn init(alloc: std.mem.Allocator) !Self {
     };
 }
 
-pub fn print_error(self: *Self, err: anyerror) void {
+pub fn print_error(self: *Self, err: anyerror) !void {
     const writers = [_]*Writer{
         &self.logfile_writer.interface,
         &self.stderr_writer.interface,
@@ -82,38 +82,38 @@ pub fn print_error(self: *Self, err: anyerror) void {
     const fmt = "{d}: ERROR: {s}" ++ newline;
     const args = .{ ts, en };
 
-    self.print_to_writer_slice(&writers, fmt, args);
-    self.flush_writers(&writers);
+    try self.print_to_writer_slice(&writers, fmt, args);
+    try self.flush_writers(&writers);
 }
 
-pub fn print(self: *Self, comptime fmt: []const u8, args: anytype) void {
+pub fn print(self: *Self, comptime fmt: []const u8, args: anytype) !void {
     const writers = [_]*Writer{
         &self.logfile_writer.interface,
         &self.stdout_writer.interface,
     };
-    self.print_to_writer_slice(&writers, fmt, args);
+    try self.print_to_writer_slice(&writers, fmt, args);
 }
 
-pub fn println(self: *Self, comptime fmt: []const u8, args: anytype) void {
-    self.print(fmt ++ newline, args);
+pub fn println(self: *Self, comptime fmt: []const u8, args: anytype) !void {
+    try self.print(fmt ++ newline, args);
 }
 
-fn print_to_writer_slice(_: *Self, writers: []const *Writer, comptime fmt: []const u8, args: anytype) void {
+fn print_to_writer_slice(_: *Self, writers: []const *Writer, comptime fmt: []const u8, args: anytype) !void {
     for (writers) |writer| {
-        writer.print(fmt, args) catch {};
+        try writer.print(fmt, args);
     }
 }
 
-pub fn flush(self: *Self) void {
+pub fn flush(self: *Self) !void {
     const writers = [_]*Writer{
         &self.logfile_writer.interface,
         &self.stdout_writer.interface,
     };
-    self.flush_writers(&writers);
+    try self.flush_writers(&writers);
 }
 
-fn flush_writers(_: *Self, writers: []const *Writer) void {
-    for (writers) |writer| writer.flush() catch {};
+fn flush_writers(_: *Self, writers: []const *Writer) !void {
+    for (writers) |writer| try writer.flush();
 }
 
 pub fn deinit(self: *Self, alloc: std.mem.Allocator) void {
