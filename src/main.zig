@@ -37,38 +37,26 @@ pub fn main() !void {
     var logger = try Logger.init(alloc);
     defer logger.deinit(alloc);
 
-    var auth = ComptimeAuth.init(
+    var auth = try ComptimeAuth.init(
         alloc,
         @embedFile("certs/cert.pem"),
         @embedFile("certs/key.pem"),
-    ) catch |e| {
-        logger.print_error(e);
-        return e;
-    };
+    );
     defer auth.deinit(alloc);
 
     logger.println("Listening at https://{s}:{d}", .{ Settings.ip, Settings.port });
     logger.flush();
 
     while (true) {
-        const connection = server.accept() catch |e| {
-            logger.print_error(e);
-            continue;
-        };
+        const connection = try server.accept();
         defer connection.stream.close();
 
-        var upgraded = tls.serverFromStream(
+        var upgraded = try tls.serverFromStream(
             connection.stream,
             .{
                 .auth = &auth,
             },
-        ) catch |e| {
-            logger.print_error(e);
-            continue;
-        };
-        defer upgraded.close() catch |e| {
-            logger.print_error(e);
-        };
+        );
 
         var https_reader_buf: [16 * 1024]u8 = undefined;
         var https_writer_buf: [16 * 1024]u8 = undefined;
@@ -80,10 +68,7 @@ pub fn main() !void {
             &https_writer.interface,
         );
 
-        var request = https_server.receiveHead() catch |e| {
-            logger.print_error(e);
-            continue;
-        };
+        var request = try https_server.receiveHead();
 
         var it = std.mem.splitAny(u8, request.head.target, "?");
         const path = it.next() orelse request.head.target;
@@ -91,20 +76,12 @@ pub fn main() !void {
 
         var address_buf: [1024]u8 = undefined;
         var address_writer = std.io.Writer.fixed(&address_buf);
-        connection.address.format(&address_writer) catch |e| {
-            logger.print_error(e);
-            continue;
-        };
-        const index = std.mem.lastIndexOf(u8, &address_buf, ":") orelse {
-            logger.print_error(error.AddressNotHaveAColon);
-            continue;
-        };
+        try connection.address.format(&address_writer);
+        const index = std.mem.lastIndexOf(u8, &address_buf, ":") orelse return error.AddressNotHaveAColon;
         const address_str = address_buf[0..index];
 
-        SwitchCodeGen.sendResponse(hashed_path, &request) catch |e| {
-            logger.print_error(e);
-            continue;
-        };
+        try SwitchCodeGen.sendResponse(hashed_path, &request);
+        try upgraded.close();
 
         logger.println("{d}: {s} => {s}", .{
             std.time.timestamp(),
