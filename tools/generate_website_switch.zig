@@ -1,41 +1,68 @@
 const std = @import("std");
-const config = @import("config");
-const hash = @import("hash").hash;
+const Config = @import("config");
+const Index = @import("index");
 
-pub fn main() !void {
-    defer std.process.cleanExit();
-    const args = try std.process.argsAlloc(std.heap.page_allocator);
-    defer std.process.argsFree(std.heap.page_allocator, args);
+const hash = std.hash.Crc32.hash;
+const find_index = Index.slash_index;
 
-    const file = try std.fs.cwd().createFile(config.switch_path, .{});
-    defer file.close();
+const Settings = Config.settings;
+
+pub fn main(init: std.process.Init) !void {
+    defer std.process.cleanExit(init.io);
+
+    std.Io.Dir.cwd().createDir(init.io, "src/website_switches/", .default_file) catch |e| switch (e) {
+        error.PathAlreadyExists => {},
+        else => return e,
+    };
+
+    inline for (Settings.websites) |website| {
+        try generate_switch(init.io, website.repo);
+    }
+}
+
+fn generate_switch(io: std.Io, comptime repo: []const u8) !void {
+    const slashed = comptime find_index(repo);
+    const file = try std.Io.Dir.cwd().createFile(io, "src/website_switches/" ++ slashed ++ ".zig", .{});
+    defer file.close(io);
     var buf: [1024]u8 = undefined;
-    var w = file.writer(&buf);
+    var w = file.writer(io, &buf);
     const writer = &w.interface;
 
     try writer.writeAll(
         \\const std = @import("std");
-        \\const hash = @import("hash.zig").hash;
+        \\const hash = std.hash.Crc32.hash;
+        \\
     );
 
     try writer.writeAll(
         \\
         \\pub fn sendResponse(hashid: u64, req: *std.http.Server.Request) !void {
+        \\@setEvalBranchQuota(100000);
         \\return switch(hashid) {
         \\
     );
 
-    var dir = try std.fs.cwd().openDir("src/assets", .{ .iterate = true });
+    var dir = try std.Io.Dir.cwd().openDir(io, "src/assets/" ++ slashed, .{ .iterate = true });
     var walker = try dir.walk(std.heap.page_allocator);
     defer walker.deinit();
 
-    while (try walker.next()) |entry| {
+    while (try walker.next(io)) |entry| {
         if (entry.kind == .directory) continue;
         const extension = std.fs.path.extension(entry.path);
 
-        const name = try std.heap.page_allocator.alloc(u8, std.mem.replacementSize(u8, entry.path, "\\", "/"));
+        const name = try std.heap.page_allocator.alloc(
+            u8,
+            std.mem.replacementSize(u8, entry.path, "\\", "/"),
+        );
         defer std.heap.page_allocator.free(name);
-        _ = std.mem.replace(u8, entry.path, "\\", "/", name);
+
+        _ = std.mem.replace(
+            u8,
+            entry.path,
+            "\\",
+            "/",
+            name,
+        );
 
         if (std.mem.indexOf(u8, name, ".git")) |_| continue;
 
@@ -78,29 +105,29 @@ pub fn main() !void {
             if (idx) |i| {
                 try writer.print(
                     \\hash("/{s}"),
-                , .{ name[0..i]});
+                , .{name[0..i]});
             }
         }
         try writer.print(
             \\hash("/{s}") => req.respond(
-            \\@embedFile("assets/{s}"),
+            \\@embedFile("../assets/{s}/{s}"),
             \\.{{{s}}},
             \\),
             \\
-        , .{ name, name, extra_header });
+        , .{ name, slashed, name, extra_header });
     }
-    try writer.writeAll(
+    try writer.print(
         \\hash("/") => req.respond(
-        \\@embedFile("assets/index.html"),
-        \\.{},
+        \\@embedFile("../assets/{s}/index.html"),
+        \\.{{}},
         \\),
         \\else => req.respond(
-        \\@embedFile("assets/404.html"),
-        \\.{ .status = .not_found },
+        \\@embedFile("../404.html"),
+        \\.{{ .status = .not_found }},
         \\),
-        \\};
-        \\}
-    );
+        \\}};
+        \\}}
+    , .{slashed});
 
     try writer.flush();
 }
