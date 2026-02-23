@@ -1,53 +1,52 @@
 const std = @import("std");
 const Config = @import("config");
 const Index = @import("index");
-const Hash = @import("hash");
 
-const hash = Hash.hash;
+const hash = std.hash.Crc32.hash;
 const find_index = Index.slash_index;
 
 const Settings = Config.settings;
 
-pub fn main() !void {
-    defer std.process.cleanExit();
+pub fn main(init: std.process.Init) !void {
+    defer std.process.cleanExit(init.io);
 
-    std.fs.cwd().makeDir("src/website_switches/") catch |e| switch (e) {
+    std.Io.Dir.cwd().createDir(init.io, "src/website_switches/", .default_file) catch |e| switch (e) {
         error.PathAlreadyExists => {},
         else => return e,
     };
 
     inline for (Settings.websites) |website| {
-        try generate_switch(website.repo);
+        try generate_switch(init.io, website.repo);
     }
 }
 
-fn generate_switch(comptime repo: []const u8) !void {
+fn generate_switch(io: std.Io, comptime repo: []const u8) !void {
     const slashed = comptime find_index(repo);
-    const file = try std.fs.cwd().createFile("src/website_switches/" ++ slashed ++ ".zig", .{});
-    defer file.close();
+    const file = try std.Io.Dir.cwd().createFile(io, "src/website_switches/" ++ slashed ++ ".zig", .{});
+    defer file.close(io);
     var buf: [1024]u8 = undefined;
-    var w = file.writer(&buf);
+    var w = file.writer(io, &buf);
     const writer = &w.interface;
 
     try writer.writeAll(
         \\const std = @import("std");
-        \\const Hash = @import("hash");
-        \\const hash = Hash.hash;
+        \\const hash = std.hash.Crc32.hash;
         \\
     );
 
     try writer.writeAll(
         \\
         \\pub fn sendResponse(hashid: u64, req: *std.http.Server.Request) !void {
+        \\@setEvalBranchQuota(100000);
         \\return switch(hashid) {
         \\
     );
 
-    var dir = try std.fs.cwd().openDir("src/assets/" ++ slashed, .{ .iterate = true });
+    var dir = try std.Io.Dir.cwd().openDir(io, "src/assets/" ++ slashed, .{ .iterate = true });
     var walker = try dir.walk(std.heap.page_allocator);
     defer walker.deinit();
 
-    while (try walker.next()) |entry| {
+    while (try walker.next(io)) |entry| {
         if (entry.kind == .directory) continue;
         const extension = std.fs.path.extension(entry.path);
 
@@ -128,7 +127,7 @@ fn generate_switch(comptime repo: []const u8) !void {
         \\),
         \\}};
         \\}}
-    , .{ slashed });
+    , .{slashed});
 
     try writer.flush();
 }

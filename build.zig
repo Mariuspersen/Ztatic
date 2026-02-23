@@ -2,20 +2,19 @@ const std = @import("std");
 const Config = @import("build.zig.zon");
 const Index = @import("src/index.zig");
 
+const Io = std.Io;
+const Dir = Io.Dir;
+
 const find_index = Index.slash_index;
 
 pub fn build(b: *std.Build) !void {
+    const io = b.graph.io;
     //std.fs.cwd().deleteFile(config.switch_path) catch {};
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
     const dep_opts = .{ .target = target, .optimize = optimize };
     const tls_module = b.dependency("tls", dep_opts).module("tls");
-
-    const hash_mod = b.createModule(.{
-        .root_source_file = b.path("src/hash.zig"),
-        .target = target,
-    });
 
     const index_mod = b.createModule(.{
         .root_source_file = b.path("src/index.zig"),
@@ -35,7 +34,6 @@ pub fn build(b: *std.Build) !void {
     });
 
     switchgen_website.root_module.addImport("config", config);
-    switchgen_website.root_module.addImport("hash", hash_mod);
     switchgen_website.root_module.addImport("index", index_mod);
 
     const switchgen_host = b.addExecutable(.{
@@ -47,14 +45,13 @@ pub fn build(b: *std.Build) !void {
     });
 
     switchgen_host.root_module.addImport("config", config);
-    switchgen_host.root_module.addImport("hash", hash_mod);
     switchgen_host.root_module.addImport("index", index_mod);
 
     var runs = std.ArrayList(?*std.Build.Step.Run).initCapacity(b.allocator, Config.settings.websites.len) catch @panic("OOM");
 
     inline for (Config.settings.websites) |website| {
         const slashed = comptime find_index(website.repo);
-        try runs.append(b.allocator, if (std.fs.cwd().access("src/assets/" ++ slashed, .{})) null else |_| b.addSystemCommand(&.{
+        try runs.append(b.allocator, if (Dir.cwd().access(io,"src/assets/" ++ slashed, .{})) null else |_| b.addSystemCommand(&.{
             "git",
             "clone",
             "--recurse-submodules",
@@ -82,7 +79,6 @@ pub fn build(b: *std.Build) !void {
     });
     exe.root_module.addImport("config", config);
     exe.root_module.addImport("tls", tls_module);
-    exe.root_module.addImport("hash", hash_mod);
     exe.step.dependOn(&switchgen_website_run.step);
     exe.step.dependOn(&switchgen_host_run.step);
 
@@ -107,9 +103,9 @@ pub fn build(b: *std.Build) !void {
         run_cmd.addArgs(args);
     }
 
-    const clean_step = b.step("clean", "Clean up logs and generated files");
-    clean_step.dependOn(&b.addRemoveDirTree(b.path(Config.settings.log_folder_name)).step);
-    clean_step.dependOn(&b.addRemoveDirTree(b.path("zig-out")).step);
-    clean_step.dependOn(&b.addRemoveDirTree(b.path("src/website_switches")).step);
-    clean_step.dependOn(&b.addRemoveDirTree(b.path("src/assets")).step);
+    //const clean_step = b.step("clean", "Clean up logs and generated files");
+    //clean_step.dependOn(&b.addRemoveDirTree(b.path(Config.settings.log_folder_name)).step);
+    //clean_step.dependOn(&b.addRemoveDirTree(b.path("zig-out")).step);
+    //clean_step.dependOn(&b.addRemoveDirTree(b.path("src/website_switches")).step);
+    //clean_step.dependOn(&b.addRemoveDirTree(b.path("src/assets")).step);
 }

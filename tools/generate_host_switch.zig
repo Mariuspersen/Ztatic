@@ -6,18 +6,17 @@ const find_index = Index.slash_index;
 
 const Settings = Config.settings;
 
-pub fn main() !void {
-    defer std.process.cleanExit();
-    const file = try std.fs.cwd().createFile("src/switch.zig", .{});
-    defer file.close();
+pub fn main(init: std.process.Init) !void {
+    defer std.process.cleanExit(init.io);
+    const file = try std.Io.Dir.cwd().createFile(init.io,"src/switch.zig", .{});
+    defer file.close(init.io);
     var buf: [1024]u8 = undefined;
-    var w = file.writer(&buf);
+    var w = file.writer(init.io,&buf);
     const writer = &w.interface;
 
     try writer.writeAll(
         \\const std = @import("std");
-        \\const Hash = @import("hash");
-        \\const hash = Hash.hash;
+        \\const hash = std.hash.Crc32.hash;
         \\
     );
 

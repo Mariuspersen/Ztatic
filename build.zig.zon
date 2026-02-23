@@ -2,11 +2,11 @@
     .name = .zighttpserver,
     .version = "0.1.0",
     .fingerprint = 0x369644b8e483181,
-    .minimum_zig_version = "0.15.1",
+    .minimum_zig_version = "0.16.0-dev.2471+e9eadee00",
     .dependencies = .{
         .tls = .{
-            .url = "https://github.com/mariuspersen/tls.zig/archive/refs/heads/master.tar.gz",
-            .hash = "tls-0.1.0-ER2e0qtnBQDmK_ydsdrKL8BTyHOzZt-AdvjC81rmmsR3",
+            .url = "https://github.com/ianic/tls.zig/archive/refs/heads/master.tar.gz",
+            .hash = "tls-0.1.0-ER2e0mt9BQB8LFIvwknZJxFDtCsfIIDKVvPZ13uSvhA_"
         },
     },
     .paths = .{
@@ -25,6 +25,8 @@
                 .repo = "https://github.com/Mariuspersen/mariuspersen.github.io.git",
                 .urls = .{
                     "mariusalexandersen.no",
+                    "localhost",
+                    "127.0.0.1"
                 },
             },
         },
